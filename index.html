@@ -15,7 +15,7 @@
     <div class="side-note"><span class="dot"></span> 数据保存在你的 GitHub<br><small>每次变动，都有记录可查</small></div>
     <button class="connection-card" id="connection-button"><span class="connection-avatar">G</span><span id="connection-label">连接私有库存<small>首次使用，连接 GitHub</small></span><span>↗</span></button>
   </aside>
-  <main>
+  <main><p class="notice" id="app-status" role="status">正在加载库存界面…若一直停留在这里，请按 Ctrl+F5 刷新网页后重试。</p>
     <header class="topbar"><div><span class="eyebrow">你的元器件，都在这里</span><h1 id="page-title">器件库存</h1></div><div class="header-actions"><span class="mode-tag" id="mode-tag">连接真实库存</span><button class="button quiet" id="refresh">↻ 刷新</button></div></header>
     <div class="notice" id="notice">尚未连接私有库存。点击“连接真实库存”完成授权后，即可记录实际出入库。</div>
     <section class="metrics" aria-label="库存概览"><article><span>器件种类</span><strong id="metric-parts">0</strong><small>已建立的器件档案</small></article><article><span>库存总数量</span><strong id="metric-stock">0</strong><small>入库与出库自动核算</small></article><article><span>暂无库存</span><strong id="metric-empty">0</strong><small>数量为零的器件</small></article><article><span>出入库记录</span><strong id="metric-moves">0</strong><small>时间、账号和用途可追溯</small></article></section>
@@ -40,5 +40,5 @@
   <dialog id="detail-dialog"><div class="dialog-heading"><div><span class="eyebrow">器件详情</span><h2 id="detail-title"></h2></div><button class="icon-button" type="button" data-close="detail-dialog" aria-label="关闭器件详情">×</button></div><div id="detail-content"></div><div class="dialog-footer" id="detail-actions"></div></dialog>
   <dialog id="connect-dialog"><form id="connect-form"><div class="dialog-heading"><div><span class="eyebrow">首次连接</span><h2>连接你的 GitHub 库存</h2></div><button class="icon-button" type="button" data-close="connect-dialog" aria-label="关闭连接窗口">×</button></div><p class="muted">网页只连接你的私有仓库，真实库存不会放到公开网页里。</p><div class="field"><label for="repository">库存仓库</label><input id="repository" placeholder="用户名/component-inventory" autocomplete="off" required></div><div class="field"><label for="token">GitHub 访问令牌</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="仅在此页面输入，不要发到聊天里" required></div><details><summary>如何获得访问令牌？</summary><ol class="setup-steps"><li>在 GitHub 创建一个有有效期的 fine-grained token。</li><li>仓库范围只选择你的私有库存仓库。</li><li>权限选择 Contents：Read-only；Issues：Read and write。Metadata 会自动附带。</li><li>生成后只粘贴到上面的框中，点击连接。</li></ol><a id="token-create-link" class="text-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">前往 GitHub 创建令牌 ↗</a><p class="muted">令牌仅保存在当前页面内存中，刷新或关闭页面后需重新连接；不会写入网址、浏览器存储、代码或日志。请求只发给 GitHub API。</p></details><p class="error" id="connect-error" role="alert"></p><div class="dialog-footer"><button type="button" class="button quiet" id="disconnect">断开连接</button><button type="submit" class="button primary" id="connect-submit">连接库存</button></div></form></dialog>
   <div id="toast" role="status" hidden></div>
-  <script type="module" src="./app.js"></script>
+  <script defer src="./app.bundle.js?v=442b242c348f"></script>
 </body></html>

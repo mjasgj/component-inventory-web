@@ -159,19 +159,20 @@ function openConnection() {
   const owner=$('#repository').value.trim().split('/')[0];
   const url=new URL('https://github.com/settings/personal-access-tokens/new');
   url.search=new URLSearchParams({name:'Component-inventory',expires_in:'30',contents:'read',issues:'write',...(owner?{target_name:owner}:{})});
-  $('#token-create-link').href=url.toString();
+  const link=$('#token-create-link');
+  if(link) link.href=url.toString();
   $('#connect-dialog').showModal();
 }
 $('#connect-form').addEventListener('submit',async event=>{
-  event.preventDefault(); $('#connect-error').textContent='';$('#connect-submit').disabled=true;
+  event.preventDefault(); $('#connect-error').textContent='正在连接 GitHub，请稍候…';$('#connect-submit').disabled=true;$('#connect-submit').textContent='正在连接…';
   let api;
   try {
     api=new GitHubInventory($('#repository').value.trim(),$('#token').value.trim()); $('#token').value='';
     const [user,data]=await Promise.all([api.user(),api.snapshot()]); state.api?.disconnect(); state.api=api; state.user=user.login;state.data=data;state.tasks=[];state.selected=null;
     try { localStorage.setItem('inventory-repository',api.repository); } catch { /* Storage is optional; never persist the token. */ }
     $('#connect-dialog').close();renderTasks();render();toast('已连接你的私有库存。');
-  } catch(error) { api?.disconnect(); $('#connect-error').textContent=error.message; }
-  finally { $('#connect-submit').disabled=false; }
+  } catch(error) { api?.disconnect(); $('#connect-error').textContent=error.message; $('#connect-error').scrollIntoView({block:'nearest'}); }
+  finally { $('#connect-submit').disabled=false; $('#connect-submit').textContent='连接库存'; }
 });
 $('#disconnect').addEventListener('click',()=>{state.api?.disconnect();state.api=null;state.user=null;state.data=emptyData();state.tasks=[];$('#token').value='';$('#connect-dialog').close();renderTasks();render();toast('已断开连接，私有库存已从页面清除。');});
 $('#connection-button').addEventListener('click',openConnection); $('#mode-tag').addEventListener('click',openConnection); $('#mode-tag').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openConnection();}});
@@ -192,3 +193,4 @@ $('#export-button').addEventListener('click',()=>{if(!state.api){openConnection(
 const hashRepo=new URLSearchParams(location.hash.slice(1)).get('repo');
 try { $('#repository').value=hashRepo || localStorage.getItem('inventory-repository') || ''; } catch { $('#repository').value=hashRepo || ''; }
 render();
+$('#app-status')?.remove();
