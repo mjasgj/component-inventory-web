@@ -1,7 +1,8 @@
-import {matchingParts,balanceAfter,issueBody,demoData} from './domain.js';
+import {matchingParts,balanceAfter,issueBody} from './domain.js';
 import {GitHubInventory} from './api.js';
 const $=selector=>document.querySelector(selector);
-const state={data:demoData(),api:null,user:null,view:'stock',kind:'入库',selected:null,tasks:[],busy:false};
+const emptyData=()=>({generated_at:null,parts:[],movements:[]});
+const state={data:emptyData(),api:null,user:null,view:'stock',kind:'入库',selected:null,tasks:[],busy:false};
 let toastTimer;
 const number=new Intl.NumberFormat('zh-CN');
 function date(value) { return value ? new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'—'; }
@@ -21,11 +22,12 @@ function render() {
   $('#category').replaceChildren(new Option('全部分类',''),...categories.map(c=>new Option(c,c)));
   $('#category').value=categories.includes(selectedCategory)?selectedCategory:'';
   const live=Boolean(state.api);
-  $('#mode-tag').textContent=live?'私有库存已连接':'演示预览'; $('#mode-tag').classList.toggle('live',live);
-  $('#notice').textContent=live?'已连接你的私有 GitHub 库存。出入库提交后由云端记账，确认入账后同步列表。':'当前展示演示数据，不代表实际购买或库存。连接 GitHub 后查看你的真实数据。'; $('#notice').classList.toggle('live',live);
+  if(!live) for(const id of ['metric-parts','metric-stock','metric-empty','metric-moves']) $('#'+id).textContent='—';
+  $('#mode-tag').textContent=live?'私有库存已连接':'连接真实库存'; $('#mode-tag').classList.toggle('live',live);
+  $('#notice').textContent=live?'已连接你的私有 GitHub 库存。出入库提交后由云端记账，确认入账后同步列表。':'尚未连接私有库存。点击“连接真实库存”完成授权后，即可记录实际出入库。'; $('#notice').classList.toggle('live',live);
   $('#connection-label').replaceChildren(document.createTextNode(live?state.user:'连接私有库存'),element('small',live?'已连接 · 点击管理':'首次使用，连接 GitHub'));
   $('#mode-tag').tabIndex=0; $('#mode-tag').setAttribute('role','button'); $('#mode-tag').setAttribute('aria-label',live?'管理库存连接':'连接私有库存');
-  $('#sync-note').textContent=live?`最近同步：${date(state.data.generated_at)}（北京）`:'演示数据 · 仅供体验';
+  $('#sync-note').textContent=live?`最近同步：${date(state.data.generated_at)}（北京）`:'连接后显示你的实际器件与数量';
   $('#page-title').textContent=state.view==='stock'?'器件库存':'出入库流水'; $('#section-title').textContent=state.view==='stock'?'全部器件':'操作记录';
   document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view));
   renderTable();
@@ -47,13 +49,18 @@ function renderTable() {
       const tr=element('tr'); tr.append(element('td',map.get(m.sku).model),element('td',(m.delta>0?'+':'')+m.delta,'qty'),element('td',[m.actor,m.handler].filter(Boolean).join(' / ')),element('td',date(m.occurred_at)),element('td',m.source || '—')); $('#table-body').append(tr);
     });
   }
-  const count=$('#table-body').children.length; $('#empty').hidden=count>0; $('#row-count').textContent=`共 ${count} ${state.view==='stock'?'种器件':'条记录'}`;
+  const count=$('#table-body').children.length; $('#empty').hidden=count>0;
+  $('#empty h3').textContent=state.api?'没有找到器件':'连接你的真实库存';
+  $('#empty p').textContent=state.api?'换一个关键词试试，或新建一个器件档案。':'连接后查看器件、记录入库和出库，所有操作保存在你的私有仓库。';
+  $('#empty-register').textContent=state.api?'＋ 新建器件':'连接真实库存';
+  $('#row-count').textContent=state.api?`共 ${count} ${state.view==='stock'?'种器件':'条记录'}`:'等待连接';
 }
 function openOperation(kind,part=null) {
+  if(!state.api) {openConnection();return;}
   state.kind=kind; state.selected=part; const register=kind==='器件建档';
   $('#operation-form').reset(); $('#extra-fields').open=false; $('#operation-error').textContent=''; $('#submit-operation').disabled=false;
-  $('#operation-title').textContent=register?'新建器件':kind; $('#operation-subtitle').textContent=state.api?'直接记录，云端留痕':'演示操作 · 不会修改真实库存';
-  $('#submit-operation').textContent=(state.api?'确认':'演示')+(register?'建档':kind);
+  $('#operation-title').textContent=register?'新建器件':kind; $('#operation-subtitle').textContent='直接记录，云端留痕';
+  $('#submit-operation').textContent='确认'+(register?'建档':kind);
   $('#picker-field').hidden=register; $('#model-field').hidden=!register; $('#model').required=register;
   $('#quantity-field').hidden=register; $('#quantity').required=!register; $('#purpose-field').hidden=register;
   document.querySelectorAll('[data-register]').forEach(n=>n.hidden=!register); document.querySelectorAll('[data-movement]').forEach(n=>n.hidden=register); $('#price-field').hidden=register || kind==='出库';
@@ -102,7 +109,7 @@ function renderTasks() {
   }
 }
 async function refresh(silent=false) {
-  if(!state.api) { if(!silent) toast('正在预览演示数据；点击“演示预览”可连接真实库存。'); return; }
+  if(!state.api) { if(!silent) openConnection(); return; }
   const api=state.api; $('#refresh').disabled=true;
   try { const data=await api.snapshot(); if(api!==state.api)return; state.data=data; render(); if(!silent) toast('已获取最新库存快照。'); }
   finally { $('#refresh').disabled=false; }
@@ -133,12 +140,10 @@ $('#operation-form').addEventListener('submit',async event=>{
   event.preventDefault(); if(state.busy)return; $('#operation-error').textContent='';
   const values=Object.fromEntries(new FormData(event.currentTarget));
   try {
-    const body=issueBody(state.kind,state.selected,values);
     if(!state.api) {
-      if(state.kind==='器件建档') state.data.parts.push({sku:crypto.randomUUID(),model:values.model.trim(),manufacturer:values.manufacturer || '',category:values.category || '',package:values.package || '',location:values.location || '',dimensions:values.dimensions || '',notes:values.notes || '',quantity:0});
-      else { const p=state.data.parts.find(p=>p.sku===state.selected.sku); const delta=state.kind==='出库'?-Number(values.quantity):Number(values.quantity); p.quantity+=delta; state.data.movements.push({sku:p.sku,delta,actor:'演示账号',handler:values.handler,occurred_at:new Date().toISOString(),source:values.purpose}); }
-      $('#operation-dialog').close();render();toast('演示完成，未修改任何真实库存。');return;
+      $('#operation-dialog').close();openConnection();return;
     }
+    const body=issueBody(state.kind,state.selected,values);
     state.busy=true; $('#submit-operation').disabled=true;
     const api=state.api; const kind=state.kind; const model=kind==='器件建档'?values.model.trim():state.selected.model;
     let issue;
@@ -149,7 +154,14 @@ $('#operation-form').addEventListener('submit',async event=>{
   } catch(error) { $('#operation-error').textContent=error.message; }
   finally { state.busy=false; $('#submit-operation').disabled=false; }
 });
-function openConnection() { $('#connect-error').textContent=''; $('#connect-dialog').showModal(); }
+function openConnection() {
+  $('#connect-error').textContent='';
+  const owner=$('#repository').value.trim().split('/')[0];
+  const url=new URL('https://github.com/settings/personal-access-tokens/new');
+  url.search=new URLSearchParams({name:'Component-inventory',expires_in:'30',contents:'read',issues:'write',...(owner?{target_name:owner}:{})});
+  $('#token-create-link').href=url.toString();
+  $('#connect-dialog').showModal();
+}
 $('#connect-form').addEventListener('submit',async event=>{
   event.preventDefault(); $('#connect-error').textContent='';$('#connect-submit').disabled=true;
   let api;
@@ -161,7 +173,7 @@ $('#connect-form').addEventListener('submit',async event=>{
   } catch(error) { api?.disconnect(); $('#connect-error').textContent=error.message; }
   finally { $('#connect-submit').disabled=false; }
 });
-$('#disconnect').addEventListener('click',()=>{state.api?.disconnect();state.api=null;state.user=null;state.data=demoData();state.tasks=[];$('#token').value='';$('#connect-dialog').close();renderTasks();render();toast('已断开连接，当前为演示数据。');});
+$('#disconnect').addEventListener('click',()=>{state.api?.disconnect();state.api=null;state.user=null;state.data=emptyData();state.tasks=[];$('#token').value='';$('#connect-dialog').close();renderTasks();render();toast('已断开连接，私有库存已从页面清除。');});
 $('#connection-button').addEventListener('click',openConnection); $('#mode-tag').addEventListener('click',openConnection); $('#mode-tag').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openConnection();}});
 $('#refresh').addEventListener('click',()=>refresh().catch(error=>toast(error.message)));
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$('#'+b.dataset.close).close()));
@@ -176,7 +188,7 @@ $('#part-search').addEventListener('keydown',event=>{
 });
 $('#suggestions').addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=event.key==='ArrowDown'?document.activeElement.nextElementSibling:document.activeElement.previousElementSibling;next?.focus();}});
 $('#quantity').addEventListener('input',updateBalance);$('#minus').addEventListener('click',()=>{$('#quantity').value=Math.max(1,Number($('#quantity').value)-1);updateBalance();});$('#plus').addEventListener('click',()=>{$('#quantity').value=Math.min(1000000000,Number($('#quantity').value)+1);updateBalance();});
-$('#export-button').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({mode:state.api?'private-inventory':'demo-only',...state.data},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=element('a');a.href=url;a.download=`${state.api?'库存导出':'演示数据'}-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('#export-button').addEventListener('click',()=>{if(!state.api){openConnection();return;}const blob=new Blob([JSON.stringify({mode:'private-inventory',...state.data},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=element('a');a.href=url;a.download=`库存导出-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 const hashRepo=new URLSearchParams(location.hash.slice(1)).get('repo');
 try { $('#repository').value=hashRepo || localStorage.getItem('inventory-repository') || ''; } catch { $('#repository').value=hashRepo || ''; }
 render();
