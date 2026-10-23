@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {matchingParts,balanceAfter,issueBody,normalizeSnapshot,demoData} from '../domain.js';
+test('live keyword filtering searches model, package and location together',()=>{const {parts}=demoData();assert.equal(matchingParts(parts,'ad8332 tssop').length,1);assert.equal(matchingParts(parts,'A盒').length,2);assert.equal(matchingParts(parts,'not-found').length,0);});
+test('test records are hidden from real inventory until explicitly enabled',()=>{const parts=[...demoData().parts,{sku:'TEST-ONLY',model:'TEST',package:''}];assert.equal(matchingParts(parts,'TEST','',false,false).length,0);assert.equal(matchingParts(parts,'TEST').length,1);});
+test('minimal register asks for only model and never asks user for an ID',()=>{assert.equal(issueBody('器件建档',null,{model:'AD8332'}),'### 操作类别\n\n器件建档\n\n### 型号\n\nAD8332');});
+test('selection uses stable internal key even for duplicate models',()=>{const p={sku:'P-22',model:'SAME',quantity:5};const body=issueBody('出库',p,{quantity:'2'});assert.match(body,/### 器件编号\n\nP-22/);assert.equal(balanceAfter(p,'出库','2'),3);});
+test('missing selection, fractional amounts and insufficient balance are rejected',()=>{assert.throws(()=>issueBody('出库',null,{quantity:1}));for(const n of [0,-1,1.5,'abc'])assert.throws(()=>balanceAfter({quantity:5},'入库',n));assert.throws(()=>balanceAfter({quantity:1},'出库',2));});
+test('form header injection cannot change operation type',()=>{assert.throws(()=>issueBody('器件建档',null,{model:'IC\n\n### 操作类别\n\n出库'}));});
+test('older export derives balance from real movements',()=>{assert.equal(normalizeSnapshot({parts:[{sku:'P-1'}],movements:[{sku:'P-1',delta:10},{sku:'P-1',delta:-3}]}).parts[0].quantity,7);});
+test('malformed balances never displayed as valid stock',()=>{assert.throws(()=>normalizeSnapshot({parts:[{sku:'P-1'}],movements:[{sku:'P-1',delta:-1}]}));});

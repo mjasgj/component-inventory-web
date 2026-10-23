@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#164c43">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>元件柜 · 库存工作台</title><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a href="#" class="brand"><span class="brand-icon">▦</span><span>元件柜<small>COMPONENT INVENTORY</small></span></a>
+    <div class="nav-caption">工作台</div>
+    <nav><button class="nav-item active" data-view="stock"><span>▤</span> 器件库存</button><button class="nav-item" data-view="history"><span>↔</span> 出入库流水</button></nav>
+    <div class="side-note"><span class="dot"></span> 数据保存在你的 GitHub<br><small>每次变动，都有记录可查</small></div>
+    <button class="connection-card" id="connection-button"><span class="connection-avatar">G</span><span id="connection-label">连接私有库存<small>首次使用，连接 GitHub</small></span><span>↗</span></button>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="eyebrow">你的元器件，都在这里</span><h1 id="page-title">器件库存</h1></div><div class="header-actions"><span class="mode-tag" id="mode-tag">演示预览</span><button class="button quiet" id="refresh">↻ 刷新</button></div></header>
+    <div class="notice" id="notice">当前展示演示数据，不代表实际购买或库存。连接 GitHub 后查看你的真实数据。</div>
+    <section class="metrics" aria-label="库存概览"><article><span>器件种类</span><strong id="metric-parts">0</strong><small>已建立的器件档案</small></article><article><span>库存总数量</span><strong id="metric-stock">0</strong><small>入库与出库自动核算</small></article><article><span>暂无库存</span><strong id="metric-empty">0</strong><small>数量为零的器件</small></article><article><span>出入库记录</span><strong id="metric-moves">0</strong><small>时间、账号和用途可追溯</small></article></section>
+    <section class="workspace">
+      <div class="workspace-top"><div><h2 id="section-title">全部器件</h2><p id="sync-note">演示数据 · 仅供体验</p></div><div class="actions"><button class="button quiet" id="export-button">↓ 导出</button><button class="button secondary" id="new-part">＋ 新建器件</button><button class="button primary" id="new-inbound">↙ 入库</button><button class="button secondary" id="new-outbound">↗ 出库</button></div></div>
+      <div class="filters"><label class="search-wrap"><span>⌕</span><input id="search" type="search" placeholder="搜索型号、封装、厂家或存放位置…" aria-label="搜索器件"></label><select id="category" aria-label="筛选分类"><option value="">全部分类</option></select><label class="check"><input id="only-stock" type="checkbox"> 只看有库存</label><label class="check" id="test-toggle"><input id="show-tests" type="checkbox"> 显示测试器件</label></div>
+      <div class="table-wrap"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
+      <div class="empty" id="empty" hidden><span>▦</span><h3>没有找到器件</h3><p>换一个关键词试试，或新建一个器件档案。</p><button class="button secondary" id="empty-register">＋ 新建器件</button></div>
+      <footer class="table-footer"><span id="row-count"></span><span>选择器件即可入库、出库或查看流水，无需记编号。</span></footer>
+    </section>
+    <section class="task-box" id="tasks" hidden><h2>处理进度</h2><div id="task-list" aria-live="polite"></div></section>
+    <p class="bottom-note">库存操作由 GitHub 云端处理。列表有同步时间，单据确认入账后再更新数量。</p>
+  </main>
+  <dialog id="operation-dialog"><form id="operation-form"><div class="dialog-heading"><div><span class="eyebrow" id="operation-subtitle">库存操作</span><h2 id="operation-title">入库</h2></div><button class="icon-button" type="button" data-close="operation-dialog" aria-label="关闭操作窗口">×</button></div>
+    <div class="field" id="picker-field"><label for="part-search">选择器件 <em>必填</em></label><div class="picker"><input id="part-search" type="search" placeholder="输入型号，立即筛选并选择…" role="combobox" aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list" autocomplete="off"><div id="suggestions" role="listbox" hidden></div></div><div class="selected-part" id="selected-part" hidden></div></div>
+    <div class="field" id="model-field" hidden><label for="model">型号 <em>必填</em></label><input id="model" name="model" placeholder="例如 AD8332ARUZ" maxlength="160"></div>
+    <div class="quantity-row" id="quantity-field"><div class="field"><label for="quantity">数量 <em>必填</em></label><div class="stepper"><button type="button" id="minus" aria-label="数量减一">−</button><input id="quantity" name="quantity" type="number" value="1" min="1" max="1000000000" step="1" inputmode="numeric"><button type="button" id="plus" aria-label="数量加一">＋</button></div></div><div class="balance-preview" id="balance-preview">请选择器件</div></div>
+    <div class="field" id="purpose-field"><label for="purpose">用途或来源 <small>选填</small></label><input id="purpose" name="purpose" placeholder="例如：超声项目领用 / 立创采购" maxlength="300"></div>
+    <details id="extra-fields"><summary>补充信息 <span>选填，随时可以先留空</span></summary><div class="details-grid"><div class="field" data-register><label for="manufacturer">厂家</label><input id="manufacturer" name="manufacturer" maxlength="160"></div><div class="field" data-register><label for="package">封装</label><input id="package" name="package" placeholder="例如 TSSOP-28" maxlength="160"></div><div class="field" data-register><label for="part-category">分类</label><input id="part-category" name="category" placeholder="例如 放大器" maxlength="160"></div><div class="field" data-register><label for="location">存放位置</label><input id="location" name="location" placeholder="例如 A盒第2格" maxlength="160"></div><div class="field" data-register><label for="dimensions">尺寸（mm）</label><input id="dimensions" name="dimensions" placeholder="长 × 宽 × 高" maxlength="160"></div><div class="field" data-movement id="price-field"><label for="price">采购单价（元）</label><input id="price" name="price" type="number" min="0" step="0.01" placeholder="未知就留空"></div><div class="field" data-movement><label for="handler">实际经手人</label><input id="handler" name="handler" placeholder="提交账号会自动记录" maxlength="160"></div><div class="field" data-movement><label for="occurred">实际发生时间</label><input id="occurred" name="occurred" type="datetime-local"><small>留空自动取提交时间；补填按北京时间。</small></div><div class="field wide"><label for="notes">备注</label><input id="notes" name="notes" placeholder="其他说明或数据手册链接" maxlength="400"></div></div></details>
+    <p class="error" id="operation-error" role="alert"></p><p class="auto-note">时间和提交账号自动记录，编号与单据标题由系统生成。</p><div class="dialog-footer"><button type="button" class="button quiet" data-close="operation-dialog">取消</button><button type="submit" class="button primary" id="submit-operation">确认入库</button></div>
+  </form></dialog>
+  <dialog id="detail-dialog"><div class="dialog-heading"><div><span class="eyebrow">器件详情</span><h2 id="detail-title"></h2></div><button class="icon-button" type="button" data-close="detail-dialog" aria-label="关闭器件详情">×</button></div><div id="detail-content"></div><div class="dialog-footer" id="detail-actions"></div></dialog>
+  <dialog id="connect-dialog"><form id="connect-form"><div class="dialog-heading"><div><span class="eyebrow">首次连接</span><h2>连接你的 GitHub 库存</h2></div><button class="icon-button" type="button" data-close="connect-dialog" aria-label="关闭连接窗口">×</button></div><p class="muted">网页只连接你的私有仓库，真实库存不会放到公开网页里。</p><div class="field"><label for="repository">库存仓库</label><input id="repository" placeholder="用户名/component-inventory" autocomplete="off" required></div><div class="field"><label for="token">GitHub 访问令牌</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="仅在此页面输入，不要发到聊天里" required></div><details><summary>如何获得访问令牌？</summary><ol class="setup-steps"><li>在 GitHub 创建一个有有效期的 fine-grained token。</li><li>仓库范围只选择你的私有库存仓库。</li><li>权限选择 Contents：Read-only；Issues：Read and write。Metadata 会自动附带。</li><li>生成后只粘贴到上面的框中，点击连接。</li></ol><a class="text-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">前往 GitHub 创建令牌 ↗</a><p class="muted">令牌仅保存在当前页面内存中，刷新或关闭页面后需重新连接；不会写入网址、浏览器存储、代码或日志。请求只发给 GitHub API。</p></details><p class="error" id="connect-error" role="alert"></p><div class="dialog-footer"><button type="button" class="button quiet" id="disconnect">断开连接</button><button type="submit" class="button primary" id="connect-submit">连接库存</button></div></form></dialog>
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="./app.js"></script>
+</body></html>
